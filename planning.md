@@ -205,8 +205,10 @@ For each tool, describe the specific failure mode you're handling and what the a
 ---
 
 **Milestone 3 — Individual tool implementations:**
+I used Claude to implement all four tools by providing the tool spec, architecture diagram, and error handling table from this file as input. Each tool was tested in isolation using pytest before moving on. The main issue I ran into was that the Groq model `llama3-8b-8192` had been decommissioned — I switched to `llama-3.3-70b-versatile` and all 14 tests passed. I verified each failure mode: empty search returns `[]`, empty wardrobe returns general styling advice, empty outfit input returns an error string, and no comparables returns a descriptive message — none of them raise exceptions.
 
 **Milestone 4 — Planning loop and state management:**
+I used Claude to implement `run_agent()` in agent.py, providing the Planning Loop, State Management, and Architecture sections from this file. The agent parses the user query with regex to extract description, size, and max_price, then calls each tool in sequence and stores results in the session dict. The main challenge was the error message for no results — the first version echoed the full raw query back to the user. I rewrote it to give specific, actionable tips based on which filters were active (budget too low, size too restrictive, keywords too specific). Verified both paths by running `python agent.py` and confirming the no-results case never calls `suggest_outfit` or `create_fit_card`.
 
 ---
 
