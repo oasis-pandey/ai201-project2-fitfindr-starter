@@ -18,6 +18,8 @@ Usage (once implemented):
     print(result["error"])   # None on success
 """
 
+import re
+
 from tools import search_listings, suggest_outfit, create_fit_card
 
 
@@ -92,9 +94,47 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     Before writing code, complete the Planning Loop and State Management sections
     of planning.md — your implementation should match what you described there.
     """
-    # TODO: implement the planning loop
     session = _new_session(query, wardrobe)
-    session["error"] = "Planning loop not yet implemented."
+
+    # Step 2: Parse the query for description, size, and max_price using regex
+    size_match = re.search(r'\bsize\s+([SMLXs/]+)', query, re.IGNORECASE)
+    price_match = re.search(r'\$?(\d+(?:\.\d+)?)\s*(?:dollars?|max|or under|under|and under)?', query, re.IGNORECASE)
+    size = size_match.group(1).upper() if size_match else None
+    max_price = float(price_match.group(1)) if price_match else None
+
+    # Strip price/size fragments to get a clean description
+    description = re.sub(r'\bsize\s+[SMLXs/]+', '', query, flags=re.IGNORECASE)
+    description = re.sub(r'(?:under|max|or under|and under)?\s*\$?\d+(?:\.\d+)?\s*(?:dollars?|max|or under|under|and under)?', '', description, flags=re.IGNORECASE)
+    description = re.sub(r'\s{2,}', ' ', description).strip(" ,.-")
+
+    session["parsed"] = {"description": description, "size": size, "max_price": max_price}
+
+    # Step 3: Search listings — return early if nothing found
+    results = search_listings(description, size=size, max_price=max_price)
+    session["search_results"] = results
+
+    if not results:
+        lines = ["No listings matched your search. Here's what might help:"]
+        if max_price:
+            lines.append(f"  • Your budget is set to ${max_price:.0f} — try pushing it a little higher, even $5–10 more can open up a lot more options.")
+        if size:
+            lines.append(f"  • Size '{size}' is pretty specific — many listings use S/M or one-size labeling, so try dropping the size filter and checking the listing details manually.")
+        lines.append("  • Try simpler keywords — instead of a full sentence, use 2–3 words like 'graphic tee' or 'denim jacket'.")
+
+        session["error"] = "\n".join(lines)
+        return session
+
+    # Step 4: Select top result
+    session["selected_item"] = results[0]
+
+    # Step 5: Suggest outfit
+    session["outfit_suggestion"] = suggest_outfit(results[0], wardrobe)
+
+    # Step 6: Create fit card — only if wardrobe is non-empty (per planning loop spec)
+    if wardrobe.get("items"):
+        session["fit_card"] = create_fit_card(session["outfit_suggestion"], results[0])
+
+    # Step 7: Return completed session
     return session
 
 
